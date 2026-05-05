@@ -1480,4 +1480,80 @@ mod tests {
         assert!(!ctx.is_bisecting);
         assert!(!ctx.in_progress_operation);
     }
+
+    #[test]
+    fn command_context_update_stashes_persists() {
+        use super::CommandContext;
+        let mut ctx = CommandContext::none();
+        assert!(!ctx.has_stashes);
+        ctx.has_stashes = true;
+        assert!(ctx.has_stashes);
+    }
+
+    #[test]
+    fn command_context_update_staged_persists() {
+        use super::CommandContext;
+        let mut ctx = CommandContext::none();
+        assert!(!ctx.has_staged);
+        ctx.has_staged = true;
+        assert!(ctx.has_staged);
+    }
+
+    #[test]
+    fn command_context_update_remotes_persists() {
+        use super::CommandContext;
+        let mut ctx = CommandContext::none();
+        assert!(!ctx.has_remotes);
+        ctx.has_remotes = true;
+        assert!(ctx.has_remotes);
+    }
+
+    #[test]
+    fn command_context_update_changes_persists() {
+        use super::CommandContext;
+        let mut ctx = CommandContext::none();
+        assert!(!ctx.has_changes);
+        ctx.has_changes = true;
+        assert!(ctx.has_changes);
+    }
+
+    #[test]
+    fn palette_command_new_sets_all_fields() {
+        use super::{CommandId, PaletteCommand};
+        let cmd = PaletteCommand::new(
+            CommandId::Fetch,
+            "Git: Fetch",
+            Some("Download objects and refs"),
+            Some("Ctrl+Shift+F"),
+            "Git",
+        );
+        assert_eq!(cmd.label, "Git: Fetch");
+        assert_eq!(cmd.description, Some("Download objects and refs"));
+        assert_eq!(cmd.shortcut, Some("Ctrl+Shift+F"));
+        assert_eq!(cmd.category, "Git");
+    }
+
+    #[test]
+    fn palette_command_new_without_description() {
+        use super::{CommandId, PaletteCommand};
+        let cmd = PaletteCommand::new(CommandId::Refresh, "Git: Refresh", None, Some("F5"), "Git");
+        assert_eq!(cmd.label, "Git: Refresh");
+        assert_eq!(cmd.description, None);
+        assert_eq!(cmd.shortcut, Some("F5"));
+    }
+
+    #[test]
+    fn palette_command_with_predicate_returns_mutated_copy() {
+        use super::{CommandId, PaletteCommand};
+        let cmd = PaletteCommand::new(
+            CommandId::StashPop,
+            "Git: Pop Stash",
+            Some("Apply and remove stash"),
+            None,
+            "Git",
+        )
+        .with_predicate(super::has_stashes);
+        // The command was constructed — verify no panic on creation
+        assert_eq!(cmd.label, "Git: Pop Stash");
+    }
 }
