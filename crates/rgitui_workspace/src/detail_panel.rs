@@ -326,6 +326,13 @@ impl DetailPanel {
                     cx.notify();
                 }
             }
+            "v" => {
+                self.file_view_mode = match self.file_view_mode {
+                    FileViewMode::Flat => FileViewMode::Tree,
+                    FileViewMode::Tree => FileViewMode::Flat,
+                };
+                cx.notify();
+            }
             _ => {}
         }
     }
@@ -914,7 +921,24 @@ impl Render for DetailPanel {
                         .size(LabelSize::Small)
                         .weight(gpui::FontWeight::SEMIBOLD)
                         .color(Color::Default),
-                ),
+                )
+                .child(div().flex_1())
+                .child({
+                    let (icon, next_label) = match self.file_view_mode {
+                        FileViewMode::Flat => (IconName::Folder, "Tree"),
+                        FileViewMode::Tree => (IconName::File, "Flat"),
+                    };
+                    IconButton::new("view-mode-toggle", icon)
+                        .size(ButtonSize::Compact)
+                        .tooltip(format!("Switch to {} view (v)", next_label))
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.file_view_mode = match this.file_view_mode {
+                                FileViewMode::Flat => FileViewMode::Tree,
+                                FileViewMode::Tree => FileViewMode::Flat,
+                            };
+                            cx.notify();
+                        }))
+                }),
         );
 
         let mut content = div()
