@@ -788,6 +788,7 @@ pub(super) fn subscribe_project(
     project: &Entity<GitProject>,
     graph: &Entity<GraphView>,
     sidebar: &Entity<Sidebar>,
+    diff_viewer: &Entity<DiffViewer>,
     _commit_panel: &Entity<CommitPanel>,
     toolbar: &Entity<Toolbar>,
     diff_cache: Arc<Mutex<CommitDiffCache>>,
@@ -795,6 +796,7 @@ pub(super) fn subscribe_project(
     let graph = graph.clone();
     let sidebar = sidebar.clone();
     let toolbar = toolbar.clone();
+    let diff_viewer = diff_viewer.clone();
     let diff_cache = diff_cache.clone();
     let has_prewarmed = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -869,6 +871,35 @@ pub(super) fn subscribe_project(
                 }
 
                 update_sidebar_for_active_worktree(this, cx);
+
+                // Refresh diff viewer if currently displaying a changed file
+                if let Some(path) = diff_viewer.read(cx).file_path() {
+                    let path_str = path.to_string();
+                    let repo_path = project.read(cx).repo_path().to_path_buf();
+                    let dv = diff_viewer.clone();
+                    let path_str_for_spawn = path_str.clone();
+                    let path_str_for_update = path_str.clone();
+                    cx.spawn(async move |_, cx: &mut gpui::AsyncApp| {
+                        let result = cx
+                            .background_executor()
+                            .spawn(async move {
+                                rgitui_git::compute_file_diff(
+                                    &repo_path,
+                                    std::path::Path::new(&path_str_for_spawn),
+                                    false,
+                                )
+                            })
+                            .await;
+                        if let Ok(diff) = result {
+                            cx.update(|cx| {
+                                dv.update(cx, |dv, cx| {
+                                    dv.set_diff(diff, path_str_for_update, false, None, cx);
+                                });
+                            });
+                        }
+                    })
+                    .detach();
+                }
 
                 // Pre-warm diff cache once for the first 30 commits.
                 if has_prewarmed.swap(true, std::sync::atomic::Ordering::Relaxed) {
