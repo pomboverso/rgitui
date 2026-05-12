@@ -17,10 +17,10 @@ use crate::{
     ConfirmAction, ConfirmDialog, ConfirmDialogEvent, CreatePrDialog, CreatePrDialogEvent,
     DetailPanel, DetailPanelEvent, FileHistoryView, FileHistoryViewEvent, GlobalSearchView,
     GlobalSearchViewEvent, InteractiveRebase, InteractiveRebaseEvent, ReflogView, ReflogViewEvent,
-    RenameDialog, RenameDialogEvent, RepoOpener, RepoOpenerEvent, ShortcutsHelp,
-    ShortcutsHelpEvent, Sidebar, SidebarEvent, StashBranchDialog, StashBranchDialogEvent,
-    SubmoduleView, SubmoduleViewEvent, TagDialog, TagDialogEvent, ToastKind, Toolbar, ToolbarEvent,
-    WorktreeDialog, WorktreeDialogEvent,
+    RenameDialog, RenameDialogEvent, RepoCloneDialog, RepoCloneEvent, RepoOpener, RepoOpenerEvent,
+    ShortcutsHelp, ShortcutsHelpEvent, Sidebar, SidebarEvent, StashBranchDialog,
+    StashBranchDialogEvent, SubmoduleView, SubmoduleViewEvent, TagDialog, TagDialogEvent,
+    ToastKind, Toolbar, ToolbarEvent, WorktreeDialog, WorktreeDialogEvent,
 };
 
 use super::{ActiveOperation, BottomPanelMode, OperationOutput, UndoAction, UndoEntry, Workspace};
@@ -666,6 +666,12 @@ pub(super) fn subscribe_repo_opener(cx: &mut Context<Workspace>, repo_opener: &E
             RepoOpenerEvent::Dismissed => {
                 this.focus.pending_focus_restore = true;
                 cx.notify();
+            }
+            RepoOpenerEvent::ShowCloneDialog => {
+                // Show the clone dialog when user clicks Clone button
+                this.dialogs.repo_clone_dialog.update(cx, |d, cx| {
+                    d.show_visible(None, cx);
+                });
             }
         },
     )
@@ -2563,6 +2569,37 @@ pub(super) fn subscribe_bisect_view(
             }
         }
     })
+    .detach();
+}
+
+pub(super) fn subscribe_repo_clone_dialog(
+    cx: &mut Context<Workspace>,
+    repo_clone_dialog: &Entity<RepoCloneDialog>,
+) {
+    cx.subscribe(
+        repo_clone_dialog,
+        |this, _cd, event: &RepoCloneEvent, cx| match event {
+            RepoCloneEvent::CloneRepo { url, path } => {
+                if let Some(tab) = this.tabs.get(this.active_tab) {
+                    let project = tab.project.clone();
+                    let url = url.clone();
+                    let path = path.clone();
+                    this.show_toast(
+                        format!("Cloning '{}' to '{}'", url, path.display()),
+                        ToastKind::Info,
+                        cx,
+                    );
+                    project.update(cx, |proj, cx| {
+                        proj.clone_repo(&url, &path, cx).detach();
+                    });
+                }
+            }
+            RepoCloneEvent::Dismissed => {
+                this.focus.pending_focus_restore = true;
+                cx.notify();
+            }
+        },
+    )
     .detach();
 }
 
